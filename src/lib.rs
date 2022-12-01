@@ -110,17 +110,17 @@ impl <SP: StateSpace> MDP<SP>
     }
 
     fn q(&self, current_values:&Vec<f32>, state:usize, a:usize) -> f32 {
-        // self.state_space
-        // .get_prob_reward(state, a)
-        // .into_iter()
-        // .fold(0., 
-        //     |acc:f32, (st, p, r)| acc + p*(r + self.gamma * current_values[self.state_space.get_state_idx(st)])
-        // )
         self.state_space
         .get_prob_reward(state, a)
         .into_iter()
-        .map(|(st, p, r)| p*(r + self.gamma * current_values[self.state_space.get_state_idx(st)]))
-        .sum::<f32>()
+        .fold(0., 
+            |acc:f32, (st, p, r)| acc + p*(r + self.gamma * current_values[self.state_space.get_state_idx(st)])
+        )
+        // self.state_space
+        // .get_prob_reward(state, a)
+        // .into_iter()
+        // .map(|(st, p, r)| p*(r + self.gamma * current_values[self.state_space.get_state_idx(st)]))
+        // .sum::<f32>()
     }
 
     ///
