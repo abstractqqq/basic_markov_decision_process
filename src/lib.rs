@@ -1,5 +1,4 @@
 use rayon::prelude::*;
-use std::marker::Sync;
 
 ///Treating actions and states as usize for now. Probably this is the best way.
 ///Both actions and states better start from 0 and be continuous.
@@ -7,7 +6,11 @@ use std::marker::Sync;
 /// todo: 
 /// (1). Transition(s,a), distributions
 /// (2). R(s,a), rewards
+/// (3). More games.
 /// Now it's all in a get_prob_reward function which is not the best.
+/// 
+/// 
+/// 
 
 pub type Policy = usize;
 pub type Action = usize;
@@ -72,7 +75,6 @@ impl <SP: StateSpace + std::marker::Sync> MDP<SP> {
         //Parallel version
         let n:usize = self.state_space.get_state_count();
         let mut v:Vec<f64> = vec![0.; n];
-        // let mut v:Vec<f64> = vec![0.; self.state_space.get_state_count()];
         loop {
             let mut next_v:Vec<f64> = Vec::with_capacity(n);
             // Compute next v first, in parallel
@@ -108,7 +110,6 @@ impl <SP: StateSpace + std::marker::Sync> MDP<SP> {
             }
         }).collect_into_vec(&mut optimal_policy);
         optimal_policy
-
     }
 
     pub fn policy_iteration(&self, epislon:f64) -> Vec<Policy> {
@@ -137,7 +138,7 @@ impl <SP: StateSpace + std::marker::Sync> MDP<SP> {
             };
 
             let mut stable:bool = true;
-            pi.iter_mut().enumerate().for_each(|(idx, p)| {
+            pi.iter_mut().enumerate().for_each(|(idx, p):(usize, &mut usize)| {
                 let s:usize = self.state_space.get_state_from_idx(idx);
                 if self.state_space.is_terminal_state(s){
                     *p = self.default_action;
