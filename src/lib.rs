@@ -4,17 +4,12 @@ use rayon::prelude::*;
 ///Both actions and states better start from 0 and be continuous.
 /// 
 /// todo: 
-/// (1). Transition(s,a), distributions
-/// (2). R(s,a), rewards
-/// (3). More games.
+/// (1). More games. More examples. 
 /// Now it's all in a get_prob_reward function which is not the best.
-/// 
-/// 
-/// 
 
 pub type Policy = usize;
-pub type Action = usize;
-pub type State = usize; 
+pub type Action = usize; // see State.
+pub type State = usize; // In the future, make State more abstract. e.g. State can totally be (usize, usize).
 pub trait StateSpace {
     fn get_actions_at_state(&self, s:State) -> Vec<Action>;
     fn get_prob_reward(&self, s:State, a:Action) -> Vec<(State, f64, f64)>;
@@ -54,7 +49,7 @@ impl <SP: StateSpace + std::marker::Sync> MDP<SP> {
                                 .iter()
                                 .fold(f64::MIN, |acc:f64, action:&Action| 
                                     acc.max(self.q(&v, *s, *action))
-                                );
+                                ); // best action for the state
                     accum.max((old_v - v[idx]).abs())
                 }
             });
@@ -74,18 +69,18 @@ impl <SP: StateSpace + std::marker::Sync> MDP<SP> {
     pub fn par_value_iteration(&self, epislon:f64) -> Vec<Policy> {
         //Parallel version
         let n:usize = self.state_space.get_state_count();
+        let states:&Vec<State> = self.state_space.get_all_states();
         let mut v:Vec<f64> = vec![0.; n];
         loop {
             let mut next_v:Vec<f64> = Vec::with_capacity(n);
             // Compute next v first, in parallel
-            (0..n).into_par_iter().map(|i:usize| {
-                let s:State = self.state_space.get_state_from_idx(i);
-                if self.state_space.is_terminal_state(s) {
+            states.into_par_iter().map(|s:&State| {
+                if self.state_space.is_terminal_state(*s) {
                     0.
                 } else {
-                    self.state_space.get_actions_at_state(s).iter()
+                    self.state_space.get_actions_at_state(*s).iter()
                         .fold(f64::MIN, |acc:f64, action:&Action| 
-                            acc.max(self.q(&v, s, *action))
+                            acc.max(self.q(&v, *s, *action))
                         )
                 }
             }).collect_into_vec(&mut next_v);
@@ -155,7 +150,7 @@ impl <SP: StateSpace + std::marker::Sync> MDP<SP> {
 
     pub fn par_policy_iteration(&self, epislon:f64) -> Vec<Policy> {
         let state_count:usize = self.state_space.get_state_count();
-        let mut pi:Vec<Policy> = vec![self.default_action; state_count]; // !!!todo. Action should supply a default/initialization/NONE scheme
+        let mut pi:Vec<Policy> = vec![self.default_action; state_count];
         let mut v:Vec<f64> = vec![0.; state_count];
 
         loop {
@@ -178,9 +173,8 @@ impl <SP: StateSpace + std::marker::Sync> MDP<SP> {
                 v = next_v;
                 if max_diff < epislon {break}
             }
-
-            // need this for future comparison. This version is slightly faster.
-            let old_pi:Vec<Policy> = pi.clone();
+            // let stable:Arc<Mutex<bool>> = Arc::new(Mutex::new(true));
+            let mut new_pi:Vec<Policy> = Vec::with_capacity(state_count);
             self.state_space.get_all_states().par_iter()
             .map(|s:&State| {
                 if self.state_space.is_terminal_state(*s) {
@@ -188,25 +182,12 @@ impl <SP: StateSpace + std::marker::Sync> MDP<SP> {
                 } else {
                     self.better_action(&v, *s).1
                 }
-            }).collect_into_vec(&mut pi);
-            // Not the "best" comparison.
-            if old_pi == pi { // means stable
+            }).collect_into_vec(&mut new_pi);
+
+            if pi == new_pi {
                 break pi
             }
-
-            // let mut stable:bool = true;
-            // pi.iter_mut().enumerate().for_each(|(idx, p)| {
-            //     let s:usize = self.state_space.get_state_from_idx(idx);
-            //     if self.state_space.is_terminal_state(s){
-            //         *p = self.default_action;
-            //     } else {
-            //         let old_action:Action = *p;
-            //         let new_action:Action = self.better_action(&v, s).1;
-            //         *p = new_action;
-            //         if stable {stable = new_action == old_action;} // side effect
-            //     }
-            // });
-            // if stable {break pi} // break if stable, and return pi
+            pi = new_pi;
         }
 
     }

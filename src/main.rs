@@ -2,10 +2,10 @@ use markov_decision::*;
 
 fn main() {
 
-    let states = (1..=100).collect();
+    let states = (1..=10).collect();
     // let actions = vec![0,1,2];
     // let action_mapping:Vec<Actions> = vec![Actions::NONE, Actions::WALK, Actions::TRAM];
-    let tram = TramSpace::new(states, 1, 100);
+    let tram = TramSpace::new(states, 1, 10);
     let mdp_problem = MDP::new(tram, 0, 1.);
     let optimal_policy:Vec<Policy> = mdp_problem.value_iteration(1e-1);
     let optimal_policy2:Vec<Policy> = mdp_problem.par_value_iteration(1e-1);
