@@ -9,6 +9,7 @@ edition = "2021"
 criterion = "0.3"
 
 [dependencies]
+ndarray = {version="0.15.6", features=["rayon"]}
 rayon = "1.7.0"
 
 [[bench]]
