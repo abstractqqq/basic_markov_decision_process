@@ -1,4 +1,11 @@
-mod markov_decision_process;
+pub mod markov_decision_process;
+pub mod examples;
+
+use examples::grid_world::{
+    GridWorld,
+    Movements
+};
+use markov_decision_process::MarkovDecisionProcess;
 
 
 // use std::fmt::Debug;

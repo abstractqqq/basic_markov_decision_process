@@ -19,6 +19,10 @@ fn main() {
 
     let policy = mdp.value_iteration(0.01).into_iter()
         .map(|x| Movements::from_usize(x)).collect::<Vec<Movements>>();
+
+    // let policy = mdp.policy_iteration(0.01).into_iter()
+    //     .map(|x| Movements::from_usize(x)).collect::<Vec<Movements>>();
+
     println!("{:?}", policy);
     grid_world.print_policy(policy);
 }

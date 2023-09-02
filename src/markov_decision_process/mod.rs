@@ -9,7 +9,8 @@ pub trait StateSpace {
     fn get_actions_at_state(&self, s:&State) -> Vec<Action>;
     // return type: next_state, prob, reward
     fn get_future_rewards(&self, s:&State, a:&Action) -> Vec<(State, f64, f64)>;
-    fn get_all_states(&self) -> Vec<&State>; // Assume that get_all_states returns all states in the right order
+    // Assume that get_all_states returns all states in the right order, state 0 is at index 0 and so on..
+    fn get_all_states(&self) -> Vec<&State>; 
     fn len(&self) -> usize;
     fn is_terminal_state(&self, s:&State) -> bool;
     // fn get_idx_from_state(&self, s:&State) -> usize; State 0 in get_all_states has index 0
@@ -62,9 +63,11 @@ impl <'a, S: StateSpace + std::marker::Sync> MarkovDecisionProcess<'a, S> {
         let mut values:Array1<f64> = Array1::from_elem(self.state_space.len(), 0.);
         
         loop {
-            let mut new_values:Vec<f64> = Vec::with_capacity(self.state_space.len());
-            self.state_space.get_all_states()
-            .par_iter()
+            // let mut new_values:Vec<f64> = Vec::with_capacity(self.state_space.len());
+            // Non-parallel version is faster for small games. This is expected.
+
+            let new_values:Array1<f64> = self.state_space.get_all_states()
+            .iter()
             .map(|&s| {
                 // find the action that has the highest Q value.
                 // Terminal states will have f64::Min as its value.
@@ -73,15 +76,15 @@ impl <'a, S: StateSpace + std::marker::Sync> MarkovDecisionProcess<'a, S> {
                 .fold(f64::MIN, |acc:f64, action:&Action| 
                     acc.max(self.q(values.view(), s, action))
                 ) 
-            }).collect_into_vec(&mut new_values);
-
+            }).collect::<Array1<f64>>();
+            
             let max_diff: f64 = new_values.into_iter().enumerate().fold(
                 0., |acc:f64, (i, v)| {
                     if self.state_space.is_terminal_state(&i) {
                         acc
                     } else {
                         let abs_diff: f64 = (v-values[i]).abs();
-                        values[i] = v;
+                        values[i] = v; // side effect
                         acc.max(abs_diff)
                     }
                 }
@@ -101,4 +104,46 @@ impl <'a, S: StateSpace + std::marker::Sync> MarkovDecisionProcess<'a, S> {
             }
         }).collect::<Vec<Action>>()
     }
+
+    pub fn policy_iteration(&self, epsilon:f64) -> Vec<Action> {
+        let state_count:usize = self.state_space.len();
+        let mut pi:Vec<Action> = vec![self.default_action; state_count];
+        let mut values:Array1<f64> = Array1::from_elem(state_count, 0.);
+
+        loop {
+            loop {
+                let max_diff:f64 = self.state_space.get_all_states()
+                    .iter()
+                    .fold(0., |acc, &s|{
+                        if self.state_space.is_terminal_state(s){
+                            acc
+                        } else {
+                            let old_v:f64 = values[*s];
+                            // side effect, notice here we refer to the action given by pi
+                            let new_val: f64 = self.q(values.view(), s, &pi[*s]);
+                            values[*s] = new_val;
+                            acc.max((old_v - new_val).abs())
+                        }
+                });
+                if max_diff < epsilon {break}
+            }
+
+            let mut stable:bool = true;
+            pi.iter_mut().enumerate().for_each(|(i, p): (usize, &mut usize)| {
+                if !self.state_space.is_terminal_state(&i){
+                    let old_action:Action = *p;
+                    let new_action:Action = self.best_action(values.view(), &i).1;
+                    *p = new_action;
+                    if stable {
+                        stable = new_action == old_action; // side effect
+                    } 
+                }
+            });
+            if stable {
+                return pi;
+            }
+        }
+    }
+
+
 }
