@@ -14,6 +14,18 @@ pub enum Movements {
     NOTHING
 }
 
+impl ToString for Movements {
+    fn to_string(&self) -> String {
+        match self {
+            Movements::NOTHING => "-".to_owned(),
+            Movements::UP => "↑".to_owned(),
+            Movements::DOWN => "↓".to_owned(),
+            Movements::LEFT => "←".to_owned(),
+            Movements::RIGHT => "→".to_owned(),
+        }
+    }
+}
+
 impl Movements {
 
     pub fn from_usize(u: usize) -> Movements {
@@ -23,16 +35,6 @@ impl Movements {
             3 => Movements::DOWN,
             4 => Movements::RIGHT,
             _ => Movements::NOTHING,
-        }
-    }
-
-    pub fn to_string(&self) -> String {
-        match self {
-            Movements::NOTHING => "-".to_owned(),
-            Movements::UP => "↑".to_owned(),
-            Movements::DOWN => "↓".to_owned(),
-            Movements::LEFT => "←".to_owned(),
-            Movements::RIGHT => "→".to_owned(),
         }
     }
 }
@@ -45,7 +47,8 @@ pub struct GridWorld {
     terminal:Vec<(usize, usize)>,
     default_reward: f64,
     special_reward: HashMap<(usize, usize), f64>,
-    all_states: Vec<usize>
+    all_states: Vec<usize>,
+    values: Vec<f64>
 }
 
 impl Default for GridWorld {
@@ -58,7 +61,8 @@ impl Default for GridWorld {
             terminal: vec![(3,0), (3,1)], 
             default_reward: -0.04, 
             special_reward: HashMap::from_iter([((3,0), 1.0), ((3,1), -1.0)]),
-            all_states: (0..12).collect()
+            all_states: (0..12).collect(),
+            values: vec![0.;12]
         }
     }
 }
@@ -105,9 +109,11 @@ impl StateSpace for GridWorld {
     fn get_all_states(&self) -> Vec<&State> {
         self.all_states.iter().collect()
     }
+
     fn len(&self) -> usize {
         self.width * self.height
     }
+
     fn is_terminal_state(&self, s:&State) -> bool {
         // In this game, special reward state = terminal state
         let coord = self.get_coord_from_idx(s);
@@ -232,7 +238,9 @@ impl GridWorld {
         println!("{}", grid);
     }
 
-    pub fn print_policy(&self, p:Vec<Movements>) {
+    pub fn print_on_states<T>(&self, to_print:Vec<T>)
+    where T: ToString
+    {
         println!("\nGame world initial set up:\n` XXX ` means unreachable\nNumbers represent the rewards.\n");
         println!("Top left is (0, 0)");
         let terminal_states = self.terminal.iter().map(|(a,b)| {
@@ -267,12 +275,14 @@ impl GridWorld {
                             grid.push_str("  XXX  ");
                         } else {
                             let st: usize = self.get_idx_from_coord(mapped_coord.0, mapped_coord.1);
-                            let m: String = p.get(st).unwrap().to_string();
+                            let mut m: String = to_print.get(st).unwrap().to_string();
+                            if m.len() > 6 {
+                                m.truncate(6);
+                            }
                             let padded = format!("{:^7}", m);
                             grid.push_str(&padded);
                         }
                     }
-
                 }
             }
             grid.push('\n');

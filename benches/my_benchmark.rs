@@ -9,8 +9,8 @@ use markov_decision::markov_decision_process::MarkovDecisionProcess;
 fn criterion_benchmark(c: &mut Criterion) {
     let grid_world = GridWorld::default();
     grid_world.print_world();
-    let mdp = MarkovDecisionProcess::new(
-        &grid_world,
+    let mut mdp = MarkovDecisionProcess::new(
+        grid_world,
         0,
         0.9
     );
