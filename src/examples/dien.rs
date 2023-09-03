@@ -1,10 +1,19 @@
+/// Details about the DieN game, see the markdown.
+/// The key to realize is that if expected earning is positive,
+/// keep playing. If not, your only action should be to QUIT the game.
+/// If we use (current amount of money) as state, then this
+/// translates to after we have certain amount of money, we always
+/// quit. This means that we have a finite state space. This upper 
+/// max is computed as upper_bound in the new function, and the state
+/// at index upper_bound is used as a terminal state.
+/// Values then repsents the expected earning if you start with that much
+/// money.
+
 use crate::markov_decision_process::{
     Action,
     State,
     StateSpace
 };
-
-const DIEN_ACTIONS:[usize;2] = [0,1]; // 0: QUIT, 1: ROLL
 
 pub struct DieN {
     n: usize,
@@ -49,7 +58,7 @@ impl StateSpace for DieN {
         if self.is_terminal_state(s) {
             vec![0]
         } else {
-            Vec::from_iter(DIEN_ACTIONS) // 0: QUIT, 1: ROLL
+            vec![0,1] // 0: QUIT, 1: ROLL
         }
     }
 
