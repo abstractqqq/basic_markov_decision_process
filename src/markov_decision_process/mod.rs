@@ -1,6 +1,6 @@
 // use ndarray::{Array1,ArrayView1, parallel::prelude::{IntoParallelRefIterator, IndexedParallelIterator, ParallelIterator}};
 
-use std::cell::RefCell;
+use std::{cell::RefCell, slice::Iter};
 
 pub type Action = usize; // see State.
 pub type State = usize; // 
@@ -33,7 +33,7 @@ pub trait StateSpace {
     // return type: next_state, prob, reward
     fn get_future_rewards(&self, s:&State, a:&Action) -> Vec<(State, f64, f64)>;
     // Assume that get_all_states returns all states in the right order, state 0 is at index 0 and so on..
-    fn get_all_states(&self) -> Vec<&State>; 
+    fn get_all_states(&self) -> Iter<'_, State>; // can this be abstracted away as a trait?
     fn len(&self) -> usize;
     fn is_terminal_state(&self, s:&State) -> bool;
 }
@@ -86,10 +86,33 @@ impl <'a, S: StateSpace + std::marker::Sync> MarkovDecisionProcess<S> {
         )
     }
 
-    // pub fn update_value(&self) -> Vec<f64> {
+    pub fn update_value(&self) -> f64 {
 
-
-    // }
+        let new_values:Vec<f64> = self.state_space.get_all_states()
+        .map(|s| {
+            // find the action that has the highest Q value.
+            // Terminal states will have f64::Min as its value.
+            self.state_space.get_actions_at_state(s)
+            .iter()
+            .fold(f64::MIN, |acc:f64, action:&Action| 
+                acc.max(self.q(&self.learned_values.borrow(), s, action))
+            ) 
+        }).collect::<Vec<f64>>();
+        
+        let mut learned_mut = self.learned_values.borrow_mut();
+        let max_diff: f64 = new_values.into_iter().enumerate().fold(
+            0., |acc:f64, (i, v)| {
+                if self.state_space.is_terminal_state(&i) {
+                    acc
+                } else {
+                    let abs_diff: f64 = (v - learned_mut[i]).abs();
+                    learned_mut[i] = v; // side effect
+                    acc.max(abs_diff)
+                }
+            }
+        );
+        max_diff
+    }
 
     pub fn value_iteration(&mut self, epislon:f64) -> Policy {
 
@@ -98,8 +121,7 @@ impl <'a, S: StateSpace + std::marker::Sync> MarkovDecisionProcess<S> {
             // let mut new_values:Vec<f64> = Vec::with_capacity(self.state_space.len());
             // Non-parallel version is faster for small games. This is expected.
             let new_values:Vec<f64> = self.state_space.get_all_states()
-            .iter()
-            .map(|&s| {
+            .map(|s| {
                 // find the action that has the highest Q value.
                 // Terminal states will have f64::Min as its value.
                 self.state_space.get_actions_at_state(s)
@@ -109,7 +131,6 @@ impl <'a, S: StateSpace + std::marker::Sync> MarkovDecisionProcess<S> {
                 ) 
             }).collect::<Vec<f64>>();
             
-           
             let mut learned_mut = self.learned_values.borrow_mut();
             let max_diff: f64 = new_values.into_iter().enumerate().fold(
                 0., |acc:f64, (i, v)| {
@@ -128,8 +149,7 @@ impl <'a, S: StateSpace + std::marker::Sync> MarkovDecisionProcess<S> {
         }
 
         self.state_space.get_all_states()
-        .iter()
-        .map(|&s| {
+        .map(|s| {
             if self.state_space.is_terminal_state(s) {
                 self.default_action
             } else {
@@ -147,8 +167,7 @@ impl <'a, S: StateSpace + std::marker::Sync> MarkovDecisionProcess<S> {
             loop {
                 let mut learned_mut = self.learned_values.borrow_mut();
                 let max_diff:f64 = self.state_space.get_all_states()
-                    .iter()
-                    .fold(0., |acc, &s|{
+                    .fold(0., |acc, s|{
                         if self.state_space.is_terminal_state(s){
                             acc
                         } else {
@@ -184,8 +203,8 @@ impl <'a, S: StateSpace + std::marker::Sync> MarkovDecisionProcess<S> {
     }
 
     pub fn get_learned_values(&self) -> Vec<f64> {
-        let values = self.learned_values.borrow();
-        values.clone()
+        let values = self.learned_values.clone();
+        values.take()
     }
 
     pub fn show_learned_values(&self) {
@@ -194,7 +213,7 @@ impl <'a, S: StateSpace + std::marker::Sync> MarkovDecisionProcess<S> {
 
     pub fn solve(&mut self, method:MDPSolver, epsilon:f64) -> Policy {
         self.reset_values();
-        println!("Solving by {:?}", method);
+        println!("\nSolve by {:?}", method);
         match method {
             MDPSolver::POLICY_ITER => {
                 self.policy_iteration(epsilon)

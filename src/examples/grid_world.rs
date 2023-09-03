@@ -27,7 +27,6 @@ impl ToString for Movements {
 }
 
 impl Movements {
-
     pub fn from_usize(u: usize) -> Movements {
         match u {
             1 => Movements::UP,
@@ -48,7 +47,6 @@ pub struct GridWorld {
     default_reward: f64,
     special_reward: HashMap<(usize, usize), f64>,
     all_states: Vec<usize>,
-    values: Vec<f64>
 }
 
 impl Default for GridWorld {
@@ -62,7 +60,6 @@ impl Default for GridWorld {
             default_reward: -0.04, 
             special_reward: HashMap::from_iter([((3,0), 1.0), ((3,1), -1.0)]),
             all_states: (0..12).collect(),
-            values: vec![0.;12]
         }
     }
 }
@@ -106,8 +103,8 @@ impl StateSpace for GridWorld {
         Vec::new()
     }
 
-    fn get_all_states(&self) -> Vec<&State> {
-        self.all_states.iter().collect()
+    fn get_all_states(&self) -> std::slice::Iter<'_, usize> {
+        self.all_states.iter()
     }
 
     fn len(&self) -> usize {
@@ -241,19 +238,6 @@ impl GridWorld {
     pub fn print_on_states<T>(&self, to_print:Vec<T>)
     where T: ToString
     {
-        println!("\nGame world initial set up:\n` XXX ` means unreachable\nNumbers represent the rewards.\n");
-        println!("Top left is (0, 0)");
-        let terminal_states = self.terminal.iter().map(|(a,b)| {
-            let mut s = String::new();
-            s.push('(');
-            s.push_str(&a.to_string());
-            s.push(',');
-            s.push_str(&b.to_string());
-            s.push(')');
-            s
-        }).collect::<Vec<String>>();
-        println!("Terminal States are : {}", terminal_states.join(","));
-
         let x_offset:usize = 2;
         let y_offset:usize = 1;
         let mut grid = String::new();
